@@ -69,25 +69,25 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Python
         run: echo "/opt/python/cp312-cp312/bin" >> $GITHUB_PATH
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
 
       - name: Install system dependencies
         if: inputs.system-deps-linux != ''
         run: dnf install -y ${{ inputs.system-deps-linux }}
 
       - name: Install Rust
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ inputs.rust-toolchain }}
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # master
+        with:
+          toolchain: ${{ inputs.rust-toolchain }}
 
       - name: Set version
-        uses: inference-labs-inc/set-toml-version@v1
+        uses: inference-labs-inc/set-toml-version@ff9a4b64df4ce91067737822d2811a69597bf688 # v1
         with:
           files: ${{ inputs.version-files }}
 
@@ -104,7 +104,7 @@ jobs:
           fi
 
       - name: Cache Rust dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
         with:
           path: |
             ~/.cargo/registry
@@ -125,7 +125,7 @@ jobs:
           python3 -c "${{ inputs.test-import }}; print('OK')"
 
       - name: Upload wheel
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: wheel-linux-x86_64
           path: ./**/target/wheels/*.whl
@@ -138,19 +138,28 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
 
       - name: Set version
-        uses: inference-labs-inc/set-toml-version@v1
+        uses: inference-labs-inc/set-toml-version@ff9a4b64df4ce91067737822d2811a69597bf688 # v1
         with:
           files: ${{ inputs.version-files }}
 
+      - name: Verify version injection
+        run: |
+          expected_files=$(echo "${{ inputs.version-files }}" | sort)
+          changed_files=$(git diff --name-only | sort)
+          if [ "$expected_files" != "$changed_files" ]; then
+            echo "::error::Version injection modified unexpected files"
+            exit 1
+          fi
+
       - name: Build wheel
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad # v1
         with:
           target: aarch64
           args: --release --out dist --zig -i python3.12
@@ -158,7 +167,7 @@ jobs:
           working-directory: ${{ inputs.maturin-working-directory }}
 
       - name: Upload wheel
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: wheel-linux-aarch64
           path: ${{ inputs.maturin-working-directory }}/dist
@@ -170,27 +179,27 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
 
       - name: Install system dependencies
         if: inputs.system-deps-macos != ''
         run: brew install ${{ inputs.system-deps-macos }}
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # master
         with:
           toolchain: ${{ inputs.rust-toolchain }}
           targets: aarch64-apple-darwin
 
       - name: Set version
-        uses: inference-labs-inc/set-toml-version@v1
+        uses: inference-labs-inc/set-toml-version@ff9a4b64df4ce91067737822d2811a69597bf688 # v1
         with:
           files: ${{ inputs.version-files }}
 
@@ -206,7 +215,7 @@ jobs:
           fi
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2
 
       - name: Build wheel
         run: uvx maturin build --release --target aarch64-apple-darwin
@@ -221,7 +230,7 @@ jobs:
           python3 -c "${{ inputs.test-import }}; print('OK')"
 
       - name: Upload wheel
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: wheel-macos-aarch64
           path: ./**/target/wheels/*.whl
@@ -234,22 +243,31 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set version
-        uses: inference-labs-inc/set-toml-version@v1
+        uses: inference-labs-inc/set-toml-version@ff9a4b64df4ce91067737822d2811a69597bf688 # v1
         with:
           files: ${{ inputs.version-files }}
 
+      - name: Verify version injection
+        run: |
+          expected_files=$(echo "${{ inputs.version-files }}" | sort)
+          changed_files=$(git diff --name-only | sort)
+          if [ "$expected_files" != "$changed_files" ]; then
+            echo "::error::Version injection modified unexpected files"
+            exit 1
+          fi
+
       - name: Build sdist
-        uses: PyO3/maturin-action@v1
+        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad # v1
         with:
           command: sdist
           args: --out dist
           working-directory: ${{ inputs.maturin-working-directory }}
 
       - name: Upload sdist
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: sdist
           path: ${{ inputs.maturin-working-directory }}/dist
@@ -265,16 +283,23 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v6
+      - name: Validate inputs
+        run: |
+          if [ -z "${{ inputs.crate-name }}" ]; then
+            echo "::error::crate-name is required when publish-crates-io is true"
+            exit 1
+          fi
 
-      - uses: dtolnay/rust-toolchain@master
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # master
         with:
           toolchain: ${{ inputs.rust-toolchain }}
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2
 
       - name: Set version
-        uses: inference-labs-inc/set-toml-version@v1
+        uses: inference-labs-inc/set-toml-version@ff9a4b64df4ce91067737822d2811a69597bf688 # v1
         with:
           files: ${{ inputs.crate-version-files || inputs.version-files }}
 
@@ -283,13 +308,13 @@ jobs:
 
       - name: Attest build provenance
         if: inputs.slsa-attestation
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
           subject-path: target/package/${{ inputs.crate-name }}-*.crate
 
       - name: Authenticate with crates.io
         id: crates-io-auth
-        uses: rust-lang/crates-io-auth-action@v1
+        uses: rust-lang/crates-io-auth-action@b7e9a28eded4986ec6b1fa40eeee8f8f165559ec # v1.0.3
 
       - name: Publish crate
         run: cargo publish -p ${{ inputs.crate-name }} ${{ inputs.crate-features }} --allow-dirty
@@ -298,8 +323,13 @@ jobs:
 
   publish-pypi:
     name: Publish to PyPI
-    needs: [build-linux-x86_64, build-macos]
-    if: always() && !cancelled() && needs.build-linux-x86_64.result == 'success' && needs.build-macos.result == 'success'
+    needs: [build-linux-x86_64, build-linux-aarch64, build-macos, build-sdist]
+    if: |
+      always() && !cancelled() &&
+      needs.build-linux-x86_64.result == 'success' &&
+      needs.build-macos.result == 'success' &&
+      (needs.build-linux-aarch64.result == 'success' || needs.build-linux-aarch64.result == 'skipped') &&
+      (needs.build-sdist.result == 'success' || needs.build-sdist.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -307,7 +337,7 @@ jobs:
       id-token: write
     steps:
       - name: Download wheels
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
         with:
           pattern: wheel-*
           merge-multiple: true
@@ -315,18 +345,18 @@ jobs:
 
       - name: Download sdist
         if: inputs.build-sdist
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
         with:
           name: sdist
           path: ./dist
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ./dist/*
-
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
 
       - name: Publish to PyPI
         run: uv publish ./dist/*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
+        with:
+          files: ./dist/*
