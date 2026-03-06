@@ -64,27 +64,10 @@ jobs:
     name: Build wheel (linux-x86_64)
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    container:
-      image: quay.io/pypa/manylinux_2_28_x86_64
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Set up Python
-        run: echo "/opt/python/cp312-cp312/bin" >> $GITHUB_PATH
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
-
-      - name: Install system dependencies
-        if: inputs.system-deps-linux != ''
-        run: dnf install -y ${{ inputs.system-deps-linux }}
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # master
-        with:
-          toolchain: ${{ inputs.rust-toolchain }}
 
       - name: Set version
         uses: inference-labs-inc/set-toml-version@ff9a4b64df4ce91067737822d2811a69597bf688 # v1
@@ -92,9 +75,8 @@ jobs:
           files: ${{ inputs.version-files }}
 
       - name: Verify version injection
-        shell: bash
         run: |
-          expected_files=$(echo "${{ inputs.version-files }}" | sort)
+          expected_files=$(echo "$VERSION_FILES" | sort)
           changed_files=$(git diff --name-only | sort)
           if [ "$expected_files" != "$changed_files" ]; then
             echo "::error::Version injection modified unexpected files"
@@ -102,33 +84,38 @@ jobs:
             echo "Changed: $changed_files"
             exit 1
           fi
-
-      - name: Cache Rust dependencies
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: manylinux-2-28-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: manylinux-2-28-cargo-
+        env:
+          VERSION_FILES: ${{ inputs.version-files }}
 
       - name: Build wheel
-        run: uvx maturin build --release --manylinux 2_28 -i /opt/python/cp312-cp312/bin/python3
-        working-directory: ${{ inputs.maturin-working-directory }}
+        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad # v1
+        with:
+          target: x86_64
+          manylinux: "2_28"
+          args: --release --out dist -i python3.12
+          rust-toolchain: ${{ inputs.rust-toolchain }}
+          before-script-linux: |
+            if [ -n "$SYSTEM_DEPS" ]; then dnf install -y $SYSTEM_DEPS; fi
+          working-directory: ${{ inputs.maturin-working-directory }}
+        env:
+          SYSTEM_DEPS: ${{ inputs.system-deps-linux }}
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
 
       - name: Test wheel
-        shell: bash
         run: |
-          WHEEL=$(find . -path '*/wheels/*.whl' -print -quit)
-          uv pip install --system --python python3 "$WHEEL"
-          python3 -c "${{ inputs.test-import }}; print('OK')"
+          pip install ${{ inputs.maturin-working-directory }}/dist/*.whl
+          python3 -c "$TEST_IMPORT; print('OK')"
+        env:
+          TEST_IMPORT: ${{ inputs.test-import }}
 
       - name: Upload wheel
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: wheel-linux-x86_64
-          path: ./**/target/wheels/*.whl
+          path: ${{ inputs.maturin-working-directory }}/dist/*.whl
 
   build-linux-aarch64:
     name: Build wheel (linux-aarch64)
@@ -140,10 +127,6 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.12"
-
       - name: Set version
         uses: inference-labs-inc/set-toml-version@ff9a4b64df4ce91067737822d2811a69597bf688 # v1
         with:
@@ -151,26 +134,33 @@ jobs:
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "${{ inputs.version-files }}" | sort)
+          expected_files=$(echo "$VERSION_FILES" | sort)
           changed_files=$(git diff --name-only | sort)
           if [ "$expected_files" != "$changed_files" ]; then
             echo "::error::Version injection modified unexpected files"
             exit 1
           fi
+        env:
+          VERSION_FILES: ${{ inputs.version-files }}
 
       - name: Build wheel
         uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad # v1
         with:
           target: aarch64
+          manylinux: "2_28"
           args: --release --out dist --zig -i python3.12
-          container: "off"
+          rust-toolchain: ${{ inputs.rust-toolchain }}
+          before-script-linux: |
+            if [ -n "$SYSTEM_DEPS" ]; then dnf install -y $SYSTEM_DEPS; fi
           working-directory: ${{ inputs.maturin-working-directory }}
+        env:
+          SYSTEM_DEPS: ${{ inputs.system-deps-linux }}
 
       - name: Upload wheel
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: wheel-linux-aarch64
-          path: ${{ inputs.maturin-working-directory }}/dist
+          path: ${{ inputs.maturin-working-directory }}/dist/*.whl
 
   build-macos:
     name: Build wheel (macos-aarch64)
@@ -181,22 +171,11 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.12"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
-
       - name: Install system dependencies
         if: inputs.system-deps-macos != ''
-        run: brew install ${{ inputs.system-deps-macos }}
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # master
-        with:
-          toolchain: ${{ inputs.rust-toolchain }}
-          targets: aarch64-apple-darwin
+        run: brew install $SYSTEM_DEPS
+        env:
+          SYSTEM_DEPS: ${{ inputs.system-deps-macos }}
 
       - name: Set version
         uses: inference-labs-inc/set-toml-version@ff9a4b64df4ce91067737822d2811a69597bf688 # v1
@@ -205,7 +184,7 @@ jobs:
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "${{ inputs.version-files }}" | sort)
+          expected_files=$(echo "$VERSION_FILES" | sort)
           changed_files=$(git diff --name-only | sort)
           if [ "$expected_files" != "$changed_files" ]; then
             echo "::error::Version injection modified unexpected files"
@@ -213,27 +192,35 @@ jobs:
             echo "Changed: $changed_files"
             exit 1
           fi
-
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2
+        env:
+          VERSION_FILES: ${{ inputs.version-files }}
 
       - name: Build wheel
-        run: uvx maturin build --release --target aarch64-apple-darwin
-        working-directory: ${{ inputs.maturin-working-directory }}
+        uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad # v1
+        with:
+          target: aarch64-apple-darwin
+          args: --release --out dist
+          rust-toolchain: ${{ inputs.rust-toolchain }}
+          working-directory: ${{ inputs.maturin-working-directory }}
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
 
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
+
       - name: Test wheel
         run: |
-          WHEEL=$(find . -path '*/wheels/*.whl' -print -quit)
-          uv pip install --system --python python3 "$WHEEL"
-          python3 -c "${{ inputs.test-import }}; print('OK')"
+          pip install ${{ inputs.maturin-working-directory }}/dist/*.whl
+          python3 -c "$TEST_IMPORT; print('OK')"
+        env:
+          TEST_IMPORT: ${{ inputs.test-import }}
 
       - name: Upload wheel
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: wheel-macos-aarch64
-          path: ./**/target/wheels/*.whl
+          path: ${{ inputs.maturin-working-directory }}/dist/*.whl
 
   build-sdist:
     name: Build sdist
@@ -252,12 +239,14 @@ jobs:
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "${{ inputs.version-files }}" | sort)
+          expected_files=$(echo "$VERSION_FILES" | sort)
           changed_files=$(git diff --name-only | sort)
           if [ "$expected_files" != "$changed_files" ]; then
             echo "::error::Version injection modified unexpected files"
             exit 1
           fi
+        env:
+          VERSION_FILES: ${{ inputs.version-files }}
 
       - name: Build sdist
         uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad # v1
@@ -275,6 +264,7 @@ jobs:
   publish-crates-io:
     name: Publish to crates.io
     if: inputs.publish-crates-io
+    needs: [build-linux-x86_64, build-linux-aarch64, build-macos, build-sdist]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: release
@@ -285,10 +275,12 @@ jobs:
     steps:
       - name: Validate inputs
         run: |
-          if [ -z "${{ inputs.crate-name }}" ]; then
+          if [ -z "$CRATE_NAME" ]; then
             echo "::error::crate-name is required when publish-crates-io is true"
             exit 1
           fi
+        env:
+          CRATE_NAME: ${{ inputs.crate-name }}
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
@@ -304,7 +296,10 @@ jobs:
           files: ${{ inputs.crate-version-files || inputs.version-files }}
 
       - name: Package crate
-        run: cargo package -p ${{ inputs.crate-name }} ${{ inputs.crate-features }} --allow-dirty
+        run: cargo package -p "$CRATE_NAME" $CRATE_FEATURES --allow-dirty
+        env:
+          CRATE_NAME: ${{ inputs.crate-name }}
+          CRATE_FEATURES: ${{ inputs.crate-features }}
 
       - name: Attest build provenance
         if: inputs.slsa-attestation
@@ -317,8 +312,10 @@ jobs:
         uses: rust-lang/crates-io-auth-action@b7e9a28eded4986ec6b1fa40eeee8f8f165559ec # v1.0.3
 
       - name: Publish crate
-        run: cargo publish -p ${{ inputs.crate-name }} ${{ inputs.crate-features }} --allow-dirty
+        run: cargo publish -p "$CRATE_NAME" $CRATE_FEATURES --allow-dirty
         env:
+          CRATE_NAME: ${{ inputs.crate-name }}
+          CRATE_FEATURES: ${{ inputs.crate-features }}
           CARGO_REGISTRY_TOKEN: ${{ steps.crates-io-auth.outputs.token }}
 
   publish-pypi:
@@ -332,6 +329,7 @@ jobs:
       (needs.build-sdist.result == 'success' || needs.build-sdist.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment: release
     permissions:
       contents: write
       id-token: write
