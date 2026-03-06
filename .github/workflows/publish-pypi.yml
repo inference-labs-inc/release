@@ -309,6 +309,19 @@ jobs:
         with:
           files: ${{ inputs.crate-version-files || inputs.version-files }}
 
+      - name: Verify version injection
+        run: |
+          expected_files=$(echo "$VERSION_FILES" | sort)
+          changed_files=$(git diff --name-only | sort)
+          if [ "$expected_files" != "$changed_files" ]; then
+            echo "::error::Version injection modified unexpected files"
+            echo "Expected: $expected_files"
+            echo "Changed: $changed_files"
+            exit 1
+          fi
+        env:
+          VERSION_FILES: ${{ inputs.crate-version-files || inputs.version-files }}
+
       - name: Package crate
         run: cargo package -p "$CRATE_NAME" $CRATE_FEATURES --allow-dirty
         env:
