@@ -56,6 +56,10 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -100,16 +104,18 @@ jobs:
         env:
           SYSTEM_DEPS: ${{ inputs.system-deps-linux }}
 
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
         with:
           python-version: "3.12"
 
       - name: Test wheel
         run: |
-          pip install ${{ inputs.maturin-working-directory }}/dist/*.whl
+          uv pip install --system "$WORKING_DIR"/dist/*.whl
           python3 -c "$TEST_IMPORT; print('OK')"
         env:
           TEST_IMPORT: ${{ inputs.test-import }}
+          WORKING_DIR: ${{ inputs.maturin-working-directory }}
 
       - name: Upload wheel
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
@@ -195,26 +201,28 @@ jobs:
         env:
           VERSION_FILES: ${{ inputs.version-files }}
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
+        with:
+          python-version: "3.12"
+
       - name: Build wheel
         uses: PyO3/maturin-action@04ac600d27cdf7a9a280dadf7147097c42b757ad # v1
         with:
           target: aarch64-apple-darwin
-          args: --release --out dist
+          args: --release --out dist -i python3.12
           rust-toolchain: ${{ inputs.rust-toolchain }}
           working-directory: ${{ inputs.maturin-working-directory }}
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
 
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.12"
-
       - name: Test wheel
         run: |
-          pip install ${{ inputs.maturin-working-directory }}/dist/*.whl
+          uv pip install --system "$WORKING_DIR"/dist/*.whl
           python3 -c "$TEST_IMPORT; print('OK')"
         env:
           TEST_IMPORT: ${{ inputs.test-import }}
+          WORKING_DIR: ${{ inputs.maturin-working-directory }}
 
       - name: Upload wheel
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
@@ -263,8 +271,14 @@ jobs:
 
   publish-crates-io:
     name: Publish to crates.io
-    if: inputs.publish-crates-io
     needs: [build-linux-x86_64, build-linux-aarch64, build-macos, build-sdist]
+    if: |
+      always() && !cancelled() &&
+      inputs.publish-crates-io &&
+      needs.build-linux-x86_64.result == 'success' &&
+      needs.build-macos.result == 'success' &&
+      (needs.build-linux-aarch64.result == 'success' || needs.build-linux-aarch64.result == 'skipped') &&
+      (needs.build-sdist.result == 'success' || needs.build-sdist.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: release
