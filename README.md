@@ -23,8 +23,6 @@ jobs:
     secrets: inherit
 ```
 
-Pin callers by commit SHA, not branch or tag.
-
 ## Security
 
-This repo's workflows run with the calling repo's permissions and secrets. Branch protection is mandatory — see repo settings.
+This repo's workflows run with the calling repo's permissions and secrets. All actions are SHA-pinned, inputs are routed through environment variables to prevent script injection, and publish jobs require an `environment: release` gate with OIDC authentication (no stored secrets). Pin callers by commit SHA, not branch or tag.
