@@ -6,14 +6,14 @@ Shared reusable GitHub Actions workflows for inference-labs-inc repositories.
 
 | Workflow | Purpose | Consumers |
 |---|---|---|
-| `publish-pypi.yml` | Build maturin wheels and publish to PyPI | dsperse, jstprove, lightning |
+| `publish-release.yml` | Build maturin wheels and publish to PyPI and crates.io | dsperse, jstprove, lightning |
 
 ## Usage
 
 ```yaml
 jobs:
   release:
-    uses: inference-labs-inc/release/.github/workflows/publish-pypi.yml@<sha>
+    uses: inference-labs-inc/release/.github/workflows/publish-release.yml@<sha>
     with:
       rust-toolchain: nightly-2025-03-27
       version-files: |
