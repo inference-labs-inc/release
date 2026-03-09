@@ -81,7 +81,7 @@ jobs:
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | sort)
+          expected_files=$(echo "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort)
           changed_files=$(git diff --name-only | sort)
           if [ "$expected_files" != "$changed_files" ]; then
             echo "::error::Version injection modified unexpected files"
@@ -141,7 +141,7 @@ jobs:
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | sort)
+          expected_files=$(echo "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort)
           changed_files=$(git diff --name-only | sort)
           if [ "$expected_files" != "$changed_files" ]; then
             echo "::error::Version injection modified unexpected files"
@@ -194,7 +194,7 @@ jobs:
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | sort)
+          expected_files=$(echo "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort)
           changed_files=$(git diff --name-only | sort)
           if [ "$expected_files" != "$changed_files" ]; then
             echo "::error::Version injection modified unexpected files"
@@ -251,7 +251,7 @@ jobs:
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | sort)
+          expected_files=$(echo "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort)
           changed_files=$(git diff --name-only | sort)
           if [ "$expected_files" != "$changed_files" ]; then
             echo "::error::Version injection modified unexpected files"
@@ -312,7 +312,7 @@ jobs:
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | sort)
+          expected_files=$(echo "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort)
           changed_files=$(git diff --name-only | sort)
           if [ "$expected_files" != "$changed_files" ]; then
             echo "::error::Version injection modified unexpected files"

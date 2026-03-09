@@ -6,7 +6,7 @@ Shared reusable GitHub Actions workflows for inference-labs-inc repositories.
 
 | Workflow | Purpose | Consumers |
 |---|---|---|
-| `publish-release.yml` | Build maturin wheels (linux x86_64, linux aarch64, macos aarch64, sdist) and publish to PyPI and crates.io | dsperse, jstprove, lightning |
+| `publish-release.yml` | Build maturin wheels (Linux x86_64, Linux aarch64, macOS aarch64, sdist) and publish to PyPI and crates.io | dsperse, jstprove, lightning |
 
 ## Usage
 
@@ -48,7 +48,7 @@ jobs:
 
 ### Build matrix
 
-Every invocation builds all four artifact types: linux x86_64 wheel (manylinux 2_28), linux aarch64 wheel (manylinux 2_28 via zig), macOS aarch64 wheel, and source distribution. Linux x86_64 and macOS wheels are smoke-tested after build.
+Every invocation builds all four artifact types: Linux x86_64 wheel (manylinux 2_28), Linux aarch64 wheel (manylinux 2_28 via zig), macOS aarch64 wheel, and source distribution. Linux x86_64 and macOS wheels are smoke-tested after build.
 
 ## Security
 
