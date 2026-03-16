@@ -3,6 +3,10 @@ name: Build and Publish Release
 on:
   workflow_call:
     inputs:
+      version:
+        description: Version to inject (e.g. v1.2.3 or 1.2.3). Caller determines from trigger context.
+        type: string
+        required: true
       rust-toolchain:
         description: Rust toolchain to install (e.g. nightly-2025-03-27, 1.88.0)
         type: string
@@ -27,14 +31,10 @@ on:
         description: Space-separated brew packages for macOS
         type: string
         default: ""
-      build-sdist:
-        description: Whether to build a source distribution
+      publish:
+        description: Whether to publish artifacts. Set false for build-only test runs.
         type: boolean
-        default: false
-      build-linux-aarch64:
-        description: Whether to cross-compile Linux aarch64 wheel via zig
-        type: boolean
-        default: false
+        default: true
       publish-crates-io:
         description: Whether to publish a Rust crate to crates.io
         type: boolean
@@ -76,16 +76,18 @@ jobs:
       - name: Set version
         uses: inference-labs-inc/set-toml-version@ff9a4b64df4ce91067737822d2811a69597bf688 # v1
         with:
+          version: ${{ inputs.version }}
           files: ${{ inputs.version-files }}
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | sort)
-          changed_files=$(git diff --name-only | sort)
-          if [ "$expected_files" != "$changed_files" ]; then
+          expected_files=$(printf '%s\n' "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
+          changed_files=$(git diff --name-only | sort -u)
+          unexpected_files=$(comm -23 <(echo "$changed_files") <(echo "$expected_files"))
+          if [ -n "$unexpected_files" ]; then
             echo "::error::Version injection modified unexpected files"
-            echo "Expected: $expected_files"
-            echo "Changed: $changed_files"
+            echo "Allowed: $expected_files"
+            echo "Unexpected: $unexpected_files"
             exit 1
           fi
         env:
@@ -125,7 +127,6 @@ jobs:
 
   build-linux-aarch64:
     name: Build wheel (linux-aarch64)
-    if: inputs.build-linux-aarch64
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -136,14 +137,18 @@ jobs:
       - name: Set version
         uses: inference-labs-inc/set-toml-version@ff9a4b64df4ce91067737822d2811a69597bf688 # v1
         with:
+          version: ${{ inputs.version }}
           files: ${{ inputs.version-files }}
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | sort)
-          changed_files=$(git diff --name-only | sort)
-          if [ "$expected_files" != "$changed_files" ]; then
+          expected_files=$(printf '%s\n' "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
+          changed_files=$(git diff --name-only | sort -u)
+          unexpected_files=$(comm -23 <(echo "$changed_files") <(echo "$expected_files"))
+          if [ -n "$unexpected_files" ]; then
             echo "::error::Version injection modified unexpected files"
+            echo "Allowed: $expected_files"
+            echo "Unexpected: $unexpected_files"
             exit 1
           fi
         env:
@@ -161,6 +166,23 @@ jobs:
           working-directory: ${{ inputs.maturin-working-directory }}
         env:
           SYSTEM_DEPS: ${{ inputs.system-deps-linux }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+        with:
+          platforms: arm64
+
+      - name: Test wheel
+        run: |
+          printf '%s\nprint("OK")\n' "$TEST_IMPORT" > "$RUNNER_TEMP/smoke_test.py"
+          docker run --rm --platform linux/arm64 \
+            -v "$GITHUB_WORKSPACE/$WORKING_DIR/dist":/dist:ro \
+            -v "$RUNNER_TEMP/smoke_test.py":/smoke_test.py:ro \
+            arm64v8/python:3.12-slim \
+            sh -c 'pip install /dist/*.whl && python3 /smoke_test.py'
+        env:
+          TEST_IMPORT: ${{ inputs.test-import }}
+          WORKING_DIR: ${{ inputs.maturin-working-directory }}
 
       - name: Upload wheel
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
@@ -186,16 +208,18 @@ jobs:
       - name: Set version
         uses: inference-labs-inc/set-toml-version@ff9a4b64df4ce91067737822d2811a69597bf688 # v1
         with:
+          version: ${{ inputs.version }}
           files: ${{ inputs.version-files }}
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | sort)
-          changed_files=$(git diff --name-only | sort)
-          if [ "$expected_files" != "$changed_files" ]; then
+          expected_files=$(printf '%s\n' "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
+          changed_files=$(git diff --name-only | sort -u)
+          unexpected_files=$(comm -23 <(echo "$changed_files") <(echo "$expected_files"))
+          if [ -n "$unexpected_files" ]; then
             echo "::error::Version injection modified unexpected files"
-            echo "Expected: $expected_files"
-            echo "Changed: $changed_files"
+            echo "Allowed: $expected_files"
+            echo "Unexpected: $unexpected_files"
             exit 1
           fi
         env:
@@ -232,7 +256,6 @@ jobs:
 
   build-sdist:
     name: Build sdist
-    if: inputs.build-sdist
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -243,14 +266,18 @@ jobs:
       - name: Set version
         uses: inference-labs-inc/set-toml-version@ff9a4b64df4ce91067737822d2811a69597bf688 # v1
         with:
+          version: ${{ inputs.version }}
           files: ${{ inputs.version-files }}
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | sort)
-          changed_files=$(git diff --name-only | sort)
-          if [ "$expected_files" != "$changed_files" ]; then
+          expected_files=$(printf '%s\n' "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
+          changed_files=$(git diff --name-only | sort -u)
+          unexpected_files=$(comm -23 <(echo "$changed_files") <(echo "$expected_files"))
+          if [ -n "$unexpected_files" ]; then
             echo "::error::Version injection modified unexpected files"
+            echo "Allowed: $expected_files"
+            echo "Unexpected: $unexpected_files"
             exit 1
           fi
         env:
@@ -272,13 +299,7 @@ jobs:
   publish-crates-io:
     name: Publish to crates.io
     needs: [build-linux-x86_64, build-linux-aarch64, build-macos, build-sdist]
-    if: |
-      always() && !cancelled() &&
-      inputs.publish-crates-io &&
-      needs.build-linux-x86_64.result == 'success' &&
-      needs.build-macos.result == 'success' &&
-      (needs.build-linux-aarch64.result == 'success' || needs.build-linux-aarch64.result == 'skipped') &&
-      (needs.build-sdist.result == 'success' || needs.build-sdist.result == 'skipped')
+    if: inputs.publish && inputs.publish-crates-io
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: release
@@ -307,16 +328,18 @@ jobs:
       - name: Set version
         uses: inference-labs-inc/set-toml-version@ff9a4b64df4ce91067737822d2811a69597bf688 # v1
         with:
+          version: ${{ inputs.version }}
           files: ${{ inputs.crate-version-files || inputs.version-files }}
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | sort)
-          changed_files=$(git diff --name-only | sort)
-          if [ "$expected_files" != "$changed_files" ]; then
+          expected_files=$(printf '%s\n' "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
+          changed_files=$(git diff --name-only | sort -u)
+          unexpected_files=$(comm -23 <(echo "$changed_files") <(echo "$expected_files"))
+          if [ -n "$unexpected_files" ]; then
             echo "::error::Version injection modified unexpected files"
-            echo "Expected: $expected_files"
-            echo "Changed: $changed_files"
+            echo "Allowed: $expected_files"
+            echo "Unexpected: $unexpected_files"
             exit 1
           fi
         env:
@@ -348,18 +371,14 @@ jobs:
   publish-pypi:
     name: Publish to PyPI
     needs: [build-linux-x86_64, build-linux-aarch64, build-macos, build-sdist]
-    if: |
-      always() && !cancelled() &&
-      needs.build-linux-x86_64.result == 'success' &&
-      needs.build-macos.result == 'success' &&
-      (needs.build-linux-aarch64.result == 'success' || needs.build-linux-aarch64.result == 'skipped') &&
-      (needs.build-sdist.result == 'success' || needs.build-sdist.result == 'skipped')
+    if: inputs.publish
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: release
     permissions:
       contents: write
       id-token: write
+      attestations: write
     steps:
       - name: Download wheels
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
@@ -369,19 +388,19 @@ jobs:
           path: ./dist
 
       - name: Download sdist
-        if: inputs.build-sdist
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8
         with:
           name: sdist
           path: ./dist
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7
-
       - name: Publish to PyPI
-        run: uv publish ./dist/*
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # release/v1
+        with:
+          packages-dir: ./dist/
+          attestations: true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
         with:
+          tag_name: ${{ inputs.version }}
           files: ./dist/*
