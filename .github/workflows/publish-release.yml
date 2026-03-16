@@ -81,7 +81,7 @@ jobs:
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
+          expected_files=$(printf '%s\n' "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
           changed_files=$(git diff --name-only | sort -u)
           unexpected_files=$(comm -23 <(echo "$changed_files") <(echo "$expected_files"))
           if [ -n "$unexpected_files" ]; then
@@ -142,7 +142,7 @@ jobs:
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
+          expected_files=$(printf '%s\n' "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
           changed_files=$(git diff --name-only | sort -u)
           unexpected_files=$(comm -23 <(echo "$changed_files") <(echo "$expected_files"))
           if [ -n "$unexpected_files" ]; then
@@ -196,7 +196,7 @@ jobs:
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
+          expected_files=$(printf '%s\n' "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
           changed_files=$(git diff --name-only | sort -u)
           unexpected_files=$(comm -23 <(echo "$changed_files") <(echo "$expected_files"))
           if [ -n "$unexpected_files" ]; then
@@ -254,7 +254,7 @@ jobs:
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
+          expected_files=$(printf '%s\n' "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
           changed_files=$(git diff --name-only | sort -u)
           unexpected_files=$(comm -23 <(echo "$changed_files") <(echo "$expected_files"))
           if [ -n "$unexpected_files" ]; then
@@ -316,7 +316,7 @@ jobs:
 
       - name: Verify version injection
         run: |
-          expected_files=$(echo "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
+          expected_files=$(printf '%s\n' "$VERSION_FILES" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort -u)
           changed_files=$(git diff --name-only | sort -u)
           unexpected_files=$(comm -23 <(echo "$changed_files") <(echo "$expected_files"))
           if [ -n "$unexpected_files" ]; then
@@ -385,4 +385,5 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
         with:
+          tag_name: ${{ inputs.version }}
           files: ./dist/*
