@@ -167,6 +167,23 @@ jobs:
         env:
           SYSTEM_DEPS: ${{ inputs.system-deps-linux }}
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+        with:
+          platforms: arm64
+
+      - name: Test wheel
+        run: |
+          printf '%s\nprint("OK")\n' "$TEST_IMPORT" > "$RUNNER_TEMP/smoke_test.py"
+          docker run --rm --platform linux/arm64 \
+            -v "$GITHUB_WORKSPACE/$WORKING_DIR/dist":/dist:ro \
+            -v "$RUNNER_TEMP/smoke_test.py":/smoke_test.py:ro \
+            arm64v8/python:3.12-slim \
+            sh -c 'pip install /dist/*.whl && python3 /smoke_test.py'
+        env:
+          TEST_IMPORT: ${{ inputs.test-import }}
+          WORKING_DIR: ${{ inputs.maturin-working-directory }}
+
       - name: Upload wheel
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
